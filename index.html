@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>RGA Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-950 text-white p-10">
+    <div class="max-w-lg mx-auto bg-zinc-900 p-8 border border-red-900 rounded-lg">
+        <h1 class="text-2xl font-bold mb-6 text-red-600 underline">RGA TICKET ADMIN</h1>
+        <div class="space-y-4">
+            <input id="title" type="text" placeholder="Titolo Ticket" class="w-full bg-black border border-zinc-700 p-2 rounded">
+            <textarea id="desc" placeholder="Descrizione" class="w-full bg-black border border-zinc-700 p-2 rounded h-32"></textarea>
+            <button onclick="sendUpdate()" class="w-full bg-red-700 hover:bg-red-600 p-2 font-bold rounded transition">INVIA ALLA VPS</button>
+        </div>
+    </div>
+
+    <script>
+        async function sendUpdate() {
+            const data = {
+                title: document.getElementById('title').value,
+                description: document.getElementById('desc').value
+            };
+            // SOSTITUISCI CON L'IP DELLA TUA VPS
+            const response = await fetch('http://TUO_IP_VPS:3000/api/update-ticket', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            if(response.ok) alert("Comando eseguito sulla VPS!");
+        }
+    </script>
+</body>
+</html>
