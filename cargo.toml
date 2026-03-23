@@ -1,0 +1,25 @@
+[dependencies]
+# Framework per i comandi Slash
+poise = "0.6.1"
+
+# API di Discord (Serenity) - AGGIUNTO "builder"
+serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "rustls_backend", "model", "builder"] }
+
+# Motore asincrono
+tokio = { version = "1.0", features = ["full"] }
+
+# Database SQLite - AGGIUNTO "tls-rustls"
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite", "macros", "tls-rustls"] }
+
+# Gestione file .env
+dotenv = "0.15"
+
+# Gestione date e tempo
+chrono = "0.4"
+
+# --- AGGIUNTE PER DASHBOARD WEB (VERCEL) ---
+axum = "0.7"
+tower-http = { version = "0.5", features = ["cors"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+http = "1.1"
