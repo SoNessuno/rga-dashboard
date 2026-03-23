@@ -9,81 +9,99 @@
         body { background-color: #050505; color: #e5e5e5; font-family: 'Courier New', Courier, monospace; }
         .border-rga { border-color: #8b0000; }
         .bg-rga { background-color: #111; }
-        /* Animazione per il caricamento */
-        .loading { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .hidden { display: none; }
+        .loading { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen">
-    <div class="bg-rga p-8 rounded-lg border-2 border-rga shadow-2xl w-full max-w-md">
-        <h1 class="text-red-600 text-2xl font-bold mb-6 text-center tracking-widest">RED GHØST ARMY HQ</h1>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div id="login-screen" class="bg-rga p-8 rounded-lg border-2 border-rga shadow-2xl w-full max-w-sm text-center">
+        <h1 class="text-red-600 text-2xl font-bold mb-6 tracking-widest">RED GHØST ARMY</h1>
+        <p class="text-zinc-500 text-xs mb-8 uppercase tracking-tighter">Accesso limitato al personale autorizzato</p>
+        <button onclick="loginWithDiscord()" class="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-bold py-3 rounded transition flex items-center justify-center gap-2">
+            <span>LOGIN CON DISCORD</span>
+        </button>
+    </div>
+
+    <div id="command-center" class="bg-rga p-8 rounded-lg border-2 border-rga shadow-2xl w-full max-w-md hidden">
+        <h1 class="text-red-600 text-2xl font-bold mb-6 text-center tracking-widest">RGA HQ | COMMAND</h1>
         
         <div class="space-y-4">
             <div>
                 <label class="text-xs text-red-500 uppercase font-bold tracking-tighter">Titolo Pannello Ticket</label>
-                <input id="title" type="text" placeholder="Es: SUPPORTO RGA" 
-                       class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 focus:border-red-600 outline-none text-white transition-colors">
+                <input id="title" type="text" placeholder="..." class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 focus:border-red-600 outline-none text-white transition-colors">
             </div>
             <div>
                 <label class="text-xs text-red-500 uppercase font-bold tracking-tighter">Descrizione Operativa</label>
-                <textarea id="desc" placeholder="Inserisci il testo per i membri..." 
-                          class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 h-32 focus:border-red-600 outline-none text-white transition-colors"></textarea>
+                <textarea id="desc" class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 h-32 focus:border-red-600 outline-none text-white"></textarea>
             </div>
-            <button onclick="deployConfig()" class="w-full bg-red-900 hover:bg-red-700 text-white font-bold py-3 rounded transition duration-300 border border-red-500 shadow-lg active:scale-95">
+            <button onclick="deployConfig()" class="w-full bg-red-900 hover:bg-red-700 text-white font-bold py-3 rounded transition border border-red-500">
                 ESEGUI DEPLOY
             </button>
+            <button onclick="logout()" class="w-full text-zinc-600 text-[10px] uppercase mt-2 hover:text-red-500 transition">Logout / Disconnetti</button>
         </div>
         <p id="status" class="mt-4 text-center text-xs text-zinc-500 font-mono tracking-widest uppercase"></p>
     </div>
 
     <script>
+        // CONFIGURAZIONE OAUTH2
+        const CLIENT_ID = '1481800253807001700'; // <--- METTI QUI IL TUO CLIENT ID
+        const REDIRECT_URI = encodeURIComponent(window.location.origin);
+        const AUTH_URL = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&response_type=token&scope=identify%20guilds.members.read`;
+
+        // CONTROLLO TOKEN NELL'URL
+        const fragment = new URLSearchParams(window.location.hash.slice(1));
+        let accessToken = fragment.get('access_token') || localStorage.getItem('rga_token');
+
+        if (accessToken) {
+            localStorage.setItem('rga_token', accessToken);
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('command-center').classList.remove('hidden');
+            // Pulisci URL dai parametri sensibili
+            window.history.replaceState({}, document.title, "/");
+        }
+
+        function loginWithDiscord() {
+            window.location.href = AUTH_URL;
+        }
+
+        function logout() {
+            localStorage.removeItem('rga_token');
+            window.location.reload();
+        }
+
         async function deployConfig() {
             const status = document.getElementById('status');
-            const titleInput = document.getElementById('title');
-            const descInput = document.getElementById('desc');
-
-            // Reset dello stato
             status.innerText = "TRASMISSIONE IN CORSO...";
             status.className = "mt-4 text-center text-xs font-mono text-zinc-500 loading";
             
             const payload = {
-                title: titleInput.value.trim(),
-                description: descInput.value.trim()
+                token: accessToken, // Inviamo il token al bot per la verifica
+                title: document.getElementById('title').value.trim(),
+                description: document.getElementById('desc').value.trim()
             };
 
-            // Validazione minima
-            if (!payload.title || !payload.description) {
-                status.innerText = "ERRORE: CAMPI INCOMPLETI";
-                status.className = "mt-4 text-center text-xs font-mono text-red-500";
-                return;
-            }
-
             try {
-                // Sfruttiamo il rewrite configurato in vercel.json
-                // Questo evita errori di "Mixed Content" (HTTPS -> HTTP)
                 const res = await fetch('/api/update-ticket', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
                     status.innerText = "STATUS: DEPLOY COMPLETATO";
                     status.className = "mt-4 text-center text-xs font-mono text-green-500 font-bold";
-                    // Opzionale: pulizia campi dopo successo
-                    // titleInput.value = ""; descInput.value = "";
+                } else if (res.status === 401) {
+                    status.innerText = "ERROR: ACCESSO NEGATO (NON SEI STAFF)";
+                    status.className = "mt-4 text-center text-xs font-mono text-red-500";
                 } else {
-                    const errData = await res.text();
-                    console.error("Dettagli errore:", errData);
-                    status.innerText = "ERROR: INTERCESSIONE FALLITA (500)";
+                    status.innerText = "ERROR: INTERCESSIONE FALLITA";
                     status.className = "mt-4 text-center text-xs font-mono text-red-500";
                 }
             } catch (e) {
-                console.error("Errore di rete:", e);
                 status.innerText = "ERROR: VPS NON RAGGIUNGIBILE";
-                status.className = "mt-4 text-center text-xs font-mono text-red-600 font-bold";
+                status.className = "mt-4 text-center text-xs font-mono text-red-600";
             }
         }
     </script>
