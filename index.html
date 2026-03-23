@@ -2,32 +2,64 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <title>RGA Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGA | Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #050505; color: #e5e5e5; font-family: 'Courier New', Courier, monospace; }
+        .border-rga { border-color: #8b0000; }
+        .bg-rga { background-color: #111; }
+    </style>
 </head>
-<body class="bg-zinc-950 text-white p-10">
-    <div class="max-w-lg mx-auto bg-zinc-900 p-8 border border-red-900 rounded-lg">
-        <h1 class="text-2xl font-bold mb-6 text-red-600 underline">RGA TICKET ADMIN</h1>
+<body class="flex items-center justify-center min-h-screen">
+    <div class="bg-rga p-8 rounded-lg border-2 border-rga shadow-2xl w-full max-w-md">
+        <h1 class="text-red-600 text-2xl font-bold mb-6 text-center tracking-widest">RED GHØST ARMY HQ</h1>
+        
         <div class="space-y-4">
-            <input id="title" type="text" placeholder="Titolo Ticket" class="w-full bg-black border border-zinc-700 p-2 rounded">
-            <textarea id="desc" placeholder="Descrizione" class="w-full bg-black border border-zinc-700 p-2 rounded h-32"></textarea>
-            <button onclick="sendUpdate()" class="w-full bg-red-700 hover:bg-red-600 p-2 font-bold rounded transition">INVIA ALLA VPS</button>
+            <div>
+                <label class="text-xs text-red-500 uppercase">Titolo Pannello Ticket</label>
+                <input id="title" type="text" class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 focus:border-red-600 outline-none text-white">
+            </div>
+            <div>
+                <label class="text-xs text-red-500 uppercase">Descrizione Operativa</label>
+                <textarea id="desc" class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 h-32 focus:border-red-600 outline-none text-white"></textarea>
+            </div>
+            <button onclick="deployConfig()" class="w-full bg-red-900 hover:bg-red-600 text-white font-bold py-3 rounded transition duration-300 border border-red-500">
+                ESEGUI DEPLOY
+            </button>
         </div>
+        <p id="status" class="mt-4 text-center text-xs text-zinc-500 font-mono"></p>
     </div>
 
     <script>
-        async function sendUpdate() {
-            const data = {
+        async function deployConfig() {
+            const status = document.getElementById('status');
+            status.innerText = "TRASMISSIONE IN CORSO...";
+            
+            const payload = {
                 title: document.getElementById('title').value,
                 description: document.getElementById('desc').value
             };
-            // SOSTITUISCI CON L'IP DELLA TUA VPS
-            const response = await fetch('http://TUO_IP_VPS:3000/api/update-ticket', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(data)
-            });
-            if(response.ok) alert("Comando eseguito sulla VPS!");
+
+            try {
+                // USA L'IP DELLA TUA VPS QUI
+                const res = await fetch('http://TUO_IP_VPS:3000/api/update-ticket', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    status.innerText = "STATUS: DEPLOY COMPLETATO";
+                    status.classList.add('text-green-500');
+                } else {
+                    status.innerText = "ERROR: INTERCESSIONE FALLITA";
+                    status.classList.add('text-red-500');
+                }
+            } catch (e) {
+                status.innerText = "ERROR: VPS NON RAGGIUNGIBILE";
+                status.classList.add('text-red-500');
+            }
         }
     </script>
 </body>
