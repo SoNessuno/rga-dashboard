@@ -9,6 +9,9 @@
         body { background-color: #050505; color: #e5e5e5; font-family: 'Courier New', Courier, monospace; }
         .border-rga { border-color: #8b0000; }
         .bg-rga { background-color: #111; }
+        /* Animazione per il caricamento */
+        .loading { animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen">
@@ -17,48 +20,70 @@
         
         <div class="space-y-4">
             <div>
-                <label class="text-xs text-red-500 uppercase">Titolo Pannello Ticket</label>
-                <input id="title" type="text" class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 focus:border-red-600 outline-none text-white">
+                <label class="text-xs text-red-500 uppercase font-bold tracking-tighter">Titolo Pannello Ticket</label>
+                <input id="title" type="text" placeholder="Es: SUPPORTO RGA" 
+                       class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 focus:border-red-600 outline-none text-white transition-colors">
             </div>
             <div>
-                <label class="text-xs text-red-500 uppercase">Descrizione Operativa</label>
-                <textarea id="desc" class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 h-32 focus:border-red-600 outline-none text-white"></textarea>
+                <label class="text-xs text-red-500 uppercase font-bold tracking-tighter">Descrizione Operativa</label>
+                <textarea id="desc" placeholder="Inserisci il testo per i membri..." 
+                          class="w-full bg-black border border-zinc-800 p-2 rounded mt-1 h-32 focus:border-red-600 outline-none text-white transition-colors"></textarea>
             </div>
-            <button onclick="deployConfig()" class="w-full bg-red-900 hover:bg-red-600 text-white font-bold py-3 rounded transition duration-300 border border-red-500">
+            <button onclick="deployConfig()" class="w-full bg-red-900 hover:bg-red-700 text-white font-bold py-3 rounded transition duration-300 border border-red-500 shadow-lg active:scale-95">
                 ESEGUI DEPLOY
             </button>
         </div>
-        <p id="status" class="mt-4 text-center text-xs text-zinc-500 font-mono"></p>
+        <p id="status" class="mt-4 text-center text-xs text-zinc-500 font-mono tracking-widest uppercase"></p>
     </div>
 
     <script>
         async function deployConfig() {
             const status = document.getElementById('status');
+            const titleInput = document.getElementById('title');
+            const descInput = document.getElementById('desc');
+
+            // Reset dello stato
             status.innerText = "TRASMISSIONE IN CORSO...";
+            status.className = "mt-4 text-center text-xs font-mono text-zinc-500 loading";
             
             const payload = {
-                title: document.getElementById('title').value,
-                description: document.getElementById('desc').value
+                title: titleInput.value.trim(),
+                description: descInput.value.trim()
             };
 
+            // Validazione minima
+            if (!payload.title || !payload.description) {
+                status.innerText = "ERRORE: CAMPI INCOMPLETI";
+                status.className = "mt-4 text-center text-xs font-mono text-red-500";
+                return;
+            }
+
             try {
-                // USA L'IP DELLA TUA VPS QUI
-                const res = await fetch('http://41.216.189.44:3000/api/update-ticket', {
+                // Sfruttiamo il rewrite configurato in vercel.json
+                // Questo evita errori di "Mixed Content" (HTTPS -> HTTP)
+                const res = await fetch('/api/update-ticket', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(payload)
                 });
 
                 if (res.ok) {
                     status.innerText = "STATUS: DEPLOY COMPLETATO";
-                    status.classList.add('text-green-500');
+                    status.className = "mt-4 text-center text-xs font-mono text-green-500 font-bold";
+                    // Opzionale: pulizia campi dopo successo
+                    // titleInput.value = ""; descInput.value = "";
                 } else {
-                    status.innerText = "ERROR: INTERCESSIONE FALLITA";
-                    status.classList.add('text-red-500');
+                    const errData = await res.text();
+                    console.error("Dettagli errore:", errData);
+                    status.innerText = "ERROR: INTERCESSIONE FALLITA (500)";
+                    status.className = "mt-4 text-center text-xs font-mono text-red-500";
                 }
             } catch (e) {
+                console.error("Errore di rete:", e);
                 status.innerText = "ERROR: VPS NON RAGGIUNGIBILE";
-                status.classList.add('text-red-500');
+                status.className = "mt-4 text-center text-xs font-mono text-red-600 font-bold";
             }
         }
     </script>
