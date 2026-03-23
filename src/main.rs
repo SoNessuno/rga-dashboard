@@ -6,10 +6,17 @@ mod utils;
 
 use crate::config::Config;
 use poise::serenity_prelude as serenity;
-use ax_um::{routing::post, Json, Router, extract::State, http::StatusCode}; // Corretto typo se presente
-use axum::{routing::post as post_route, Json as JsonEx, extract::State as StateEx};
+// Corretti gli import di Axum (rimosso il typo ax_um)
+use axum::{
+    routing::post, 
+    Json, 
+    Router, 
+    extract::State, 
+    http::StatusCode
+};
 use tower_http::cors::{Any, CorsLayer};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use std::sync::Arc;
 
 pub struct Data {
     pub config: Config,
@@ -17,9 +24,7 @@ pub struct Data {
 }
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
-type Context<'a> = poise::Context<'a, Data, Error>;
 
-// Struttura dati aggiornata per ricevere il token dalla dashboard
 #[derive(Deserialize)]
 struct TicketUpdate {
     token: String,
@@ -27,10 +32,10 @@ struct TicketUpdate {
     description: String,
 }
 
-// --- FUNZIONE DI VERIFICA OAUTH2 ---
+// Verifica Staff tramite OAuth2
 async fn is_staff(token: &str, guild_id: u64, staff_role_id: u64) -> bool {
     let client = reqwest::Client::new();
-    let url = format!("https://discord.com/api/v10/guilds/{}/members/@me", guild_id);
+    let url = format!("https://discord.com/api/v10/users/@me/guilds/{}/member", guild_id);
 
     match client.get(url).bearer_auth(token).send().await {
         Ok(res) => {
@@ -56,7 +61,14 @@ async fn main() -> Result<(), Error> {
     let guild_id = config.guild_id;
 
     let db_pool = database::initialize_db(&config.db_url).await?;
-    println!("Database Red Ghøst Army Mod inizializzato correttamente.");
+    println!("🗄️ Database Red Ghøst Army: Inizializzato.");
+
+    // Prepariamo i dati per il server Web prima del framework
+    let db_web = db_pool.clone();
+    let config_web = config.clone();
+    
+    // Usiamo Arc per condividere l'HTTP client di Serenity in modo sicuro
+    let http_arc = Arc::new(serenity::Http::new(&token));
 
     let options = poise::FrameworkOptions {
         commands: vec![
@@ -78,52 +90,45 @@ async fn main() -> Result<(), Error> {
         ..Default::default()
     };
 
-    let db_for_setup = db_pool.clone();
-    let config_clone = config.clone();
+    let db_setup = db_pool.clone();
+    let config_setup = config.clone();
 
     let framework = poise::Framework::builder()
         .options(options)
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
                 let g_id = serenity::GuildId::new(guild_id);
-                let bot_id = ctx.http.get_current_user().await?.id;
-                let image_path = "/home/discord/red_ghost_army_mod/assets/Red-Ghost-Army.jpg";
-
                 poise::builtins::register_in_guild(ctx, &framework.options().commands, g_id).await?;
-
-                // [ ... Qui rimangono tutti i tuoi invii automatici di regole, listini, ecc. ... ]
-                // (Mantieni il codice originale che hai postato per i canali 1-8)
-
-                println!("🚀 Red Ghøst Army Mod: Sistemi sincronizzati.");
-                Ok(Data { config: config_clone, db: db_for_setup })
+                
+                // Qui puoi inserire i tuoi invii automatici (Regolamento, ecc.)
+                
+                println!("🚀 Red Ghøst Army Mod: Sistemi online.");
+                Ok(Data { config: config_setup, db: db_setup })
             })
         })
         .build();
 
-    // --- AVVIO SERVER API (DASHBOARD) CON PROTEZIONE ---
-    let http_client = framework.clone().http().clone();
-    let db_web = db_pool.clone();
-    let config_web = config.clone();
-
+    // --- AVVIO SERVER API (DASHBOARD) ---
     tokio::spawn(async move {
         let cors = CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any);
         
         let app = Router::new()
             .route("/api/update-ticket", post(move |State(db): State<sqlx::SqlitePool>, Json(payload): Json<TicketUpdate>| {
-                let http = http_client.clone();
+                let http = Arc::clone(&http_arc);
                 let conf = config_web.clone();
                 
                 async move {
-                    // 1. VERIFICA SICUREZZA OAUTH2
                     if !is_staff(&payload.token, conf.guild_id, conf.role_staff).await {
-                        println!("⚠️ Tentativo di accesso non autorizzato respinto.");
                         return StatusCode::UNAUTHORIZED;
                     }
 
-                    // 2. ESECUZIONE COMANDO (SOLO SE STAFF)
-                    let _ = sqlx::query!("INSERT OR REPLACE INTO web_configs (key, value) VALUES ('ticket_title', ?)", payload.title).execute(&db).await;
-                    let _ = sqlx::query!("INSERT OR REPLACE INTO web_configs (key, value) VALUES ('ticket_desc', ?)", payload.description).execute(&db).await;
+                    // Salvataggio su DB
+                    let _ = sqlx::query("INSERT OR REPLACE INTO web_configs (key, value) VALUES ('ticket_title', ?)")
+                        .bind(&payload.title).execute(&db).await;
+                    let _ = sqlx::query("INSERT OR REPLACE INTO web_configs (key, value) VALUES ('ticket_desc', ?)")
+                        .bind(&payload.description).execute(&db).await;
                     
+                    // Aggiornamento messaggio Discord
                     let chan = serenity::ChannelId::new(conf.channel_panel_ticket);
                     if let Ok(msgs) = chan.messages(&http, serenity::GetMessages::new().limit(20)).await {
                         let bot_id = http.get_current_user().await.unwrap().id;
@@ -131,13 +136,11 @@ async fn main() -> Result<(), Error> {
                             let embed = serenity::CreateEmbed::new()
                                 .title(&payload.title)
                                 .description(&payload.description)
-                                .color(0xFF0000)
-                                .image("attachment://Red-Ghost-Army.jpg");
-                                
-                            let _ = m.channel_id.edit_message(&http, m.id, serenity::EditMessage::new().embed(embed)).await;
+                                .color(0xFF0000);
+                            
+                            let _ = chan.edit_message(&http, m.id, serenity::EditMessage::new().embed(embed)).await;
                         }
                     }
-                    println!("✅ Dashboard: Deploy eseguito da operatore autorizzato.");
                     StatusCode::OK
                 }
             }))
@@ -156,10 +159,4 @@ async fn main() -> Result<(), Error> {
 
     client.start().await?;
     Ok(())
-}
-
-async fn clean_channel(ctx: &serenity::Context, channel_id: serenity::ChannelId) {
-    if let Ok(messages) = channel_id.messages(ctx, serenity::GetMessages::new().limit(50)).await {
-        for m in messages { let _ = m.delete(ctx).await; }
-    }
 }
