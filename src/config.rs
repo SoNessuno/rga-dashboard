@@ -13,6 +13,7 @@ pub struct Config {
     pub channel_welcome: u64,
     pub role_member: u64,
     pub role_vip: u64, 
+    pub role_staff: u64, // <--- AGGIUNTO: Il ruolo che può usare la Dashboard
     // --- REGOLAMENTO E DIRETTIVE ---
     pub channel_rules: u64,
     pub channel_omega: u64,
@@ -43,13 +44,15 @@ impl Config {
                 .parse().unwrap_or(0),
                 
             role_member: std::env::var("ROLE_MEMBER").expect("Missing ROLE_MEMBER").parse().expect("Invalid ID"),
-            
             role_vip: std::env::var("ROLE_VIP").expect("Missing ROLE_VIP").parse().expect("Invalid ID"),
+            
+            // --- AGGIUNTA STAFF ---
+            role_staff: std::env::var("ROLE_STAFF")
+                .unwrap_or_else(|_| "0".to_string())
+                .parse().unwrap_or(0),
 
             channel_rules: std::env::var("CHANNEL_RULES").expect("Missing CHANNEL_RULES").parse().expect("Invalid ID"),
-
             channel_omega: std::env::var("CHANNEL_OMEGA").expect("Missing CHANNEL_OMEGA").parse().expect("Invalid ID"),
-
             channel_vantaggi_vip: std::env::var("CHANNEL_VANTAGGI_VIP").expect("Missing CHANNEL_VANTAGGI_VIP").parse().expect("Invalid ID"),
 
             channel_prezzi_bot: std::env::var("CHANNEL_PREZZI_BOT")
